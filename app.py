@@ -138,7 +138,28 @@ st.pyplot(fig)
 st.subheader('Tendência temporal das avaliações')
 st.write('A média de avaliações tende a melhorar ao longo do tempo, indicando que os negócios estão se esforçando para atender às expectativas dos consumidores.')
 
-# Seção 7: Mapa de calor para popularidade regional
+# Seção 7: Gráfico de dispersão
+st.subheader('Quantidade de Comentários x Avaliações')
+
+# Para os pontos não ficarem sobrepostos
+jitter_strength = 0.1
+df_tip['stars_jittered'] = df_tip['stars'] + np.random.uniform(-jitter_strength, jitter_strength, size=df_tip.shape[0])
+df_tip['total_comments_jittered'] = df_tip['total_comments'] + np.random.uniform(-jitter_strength, jitter_strength, size=df_tip.shape[0])
+
+# Comentários x Avaliações
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.scatter(df_tip['stars_jittered'], df_tip['total_comments_jittered'], alpha=0.5, color='blue')
+ax.set_title('Quantidade de Comentários x Avaliações', fontsize=16)
+ax.set_xlabel('Avaliações', fontsize=12)
+ax.set_ylabel('Comentários', fontsize=12)
+ax.set_ylim(0, 3000)
+ax.grid(False)
+st.pyplot(fig)
+
+st.subheader('Análise da relação entre comentários e avaliações')
+st.write('Este gráfico mostra a relação entre o número de avaliações e a quantidade total de comentários para cada estabelecimento no Yelp.')
+
+# Seção 8: Mapa de calor para popularidade regional
 st.subheader('Popularidade Regional: Mapa de Calor')
 
 # Criando um mapa com os dados de localização
