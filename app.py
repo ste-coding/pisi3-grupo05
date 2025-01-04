@@ -176,3 +176,61 @@ HeatMap(heat_data).add_to(mapa)
 # Exibir o mapa no Streamlit
 st_folium(mapa, width=700, height=500)
 st.write('O mapa de calor revela áreas com alta concentração de negócios bem avaliados, ajudando a identificar regiões populares e com boa satisfação dos clientes.')
+
+# Seção 9: cidades+estabelecimentos interativo
+
+st.subheader('Explore as 20 Cidades e Estabelecimentos Bem Avaliados')
+
+# Filtrar estabelecimentos bem avaliados(stars>= 4)
+estabelecimentos_bem_avaliados = df_negocios[df_negocios['stars'] >= 4]
+
+# Agrupar por cidade e calcular a média de avaliação e o total de estabelecimentos
+cidade_bem_avaliada = estabelecimentos_bem_avaliados.groupby('city').agg(
+    media_avaliacao=('stars', 'mean'),
+    total_estabelecimentos=('business_id', 'count')
+).sort_values(by='total_estabelecimentos', ascending=False)
+
+#limitar em 20 cidades
+top_20_cidades = cidade_bem_avaliada.head(20)
+
+#selecionando a cidade
+cidade_selecionada = st.selectbox(
+    'Selecione uma cidade para explorar os 10 melhores estabelecimentos:',
+    top_20_cidades.index
+)
+#exibir os dados da cidade selecionada
+st.write(f'### Detalhes da Cidade: {cidade_selecionada}')
+st.write(f"**Média de Avaliação**: {cidade_bem_avaliada.loc[cidade_selecionada, 'media_avaliacao']:.2f}")
+st.write(f"**Total de Estabelecimentos Avaliados**: {cidade_bem_avaliada.loc[cidade_selecionada, 'total_estabelecimentos']}")
+
+#filtrar estabelecimentos da cidade selecionada
+estabelecimentos_na_cidade = estabelecimentos_bem_avaliados[estabelecimentos_bem_avaliados['city'] == cidade_selecionada]
+
+#ordenar pelos mais bem avaliados e limitar a exibição aos 10 melhores
+top_estabelecimentos = estabelecimentos_na_cidade.sort_values(by='stars', ascending=False).head(10)
+
+#exibir melhores estabelecimentos da cidade
+st.write(f'#### Melhores Estabelecimentos Avaliados em {cidade_selecionada}')
+st.dataframe(top_estabelecimentos[['name', 'stars', 'categories']].sort_values(by='stars', ascending=False))
+
+#mapa interativo com os estabelecimentos bem avaliados
+st.subheader('Mapa de Estabelecimentos Bem Avaliados')
+
+mapa_cidade = folium.Map(
+    location=[top_estabelecimentos['latitude'].mean(), top_estabelecimentos['longitude'].mean()],
+    zoom_start=12
+)
+
+#adicionar marcadores ao mapa
+for _, row in top_estabelecimentos.iterrows():
+    folium.Marker(
+        location=[row['latitude'], row['longitude']],
+        popup=f"{row['name']} ({row['stars']}⭐)\n{row['categories']}\n{row['address']}",
+        icon=folium.Icon(color="blue", icon="info-sign"),
+    ).add_to(mapa_cidade)
+
+st_folium(mapa_cidade, width=700, height=500)
+st.write(
+    f"A análise acima permite explorar os melhores estabelecimentos avaliados na cidade de {cidade_selecionada}. "
+    "A partir disso, é possível identificar locais populares, explorar categorias de negócios e obter insights sobre a qualidade dos serviços oferecidos!"
+)
