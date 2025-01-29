@@ -3,234 +3,149 @@ import pandas as pd
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.express as px
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 import folium
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
+from wordcloud import WordCloud
 
 # Carregando os datasets necessários
-df_negocios = pd.read_parquet('yelp_academic_dataset_business_cleaned.parquet')
-df_tip = pd.read_parquet('yelp_academic_dataset_tip_cleaned.parquet')
+@st.cache_data
+def load_data():
+    df_negocios = pd.read_parquet('yelp_academic_dataset_business_cleaned.parquet')
+    df_tip = pd.read_parquet('yelp_academic_dataset_tip_cleaned.parquet')
+    return df_negocios, df_tip
+
+df_negocios, df_tip = load_data()
 
 # Título principal do aplicativo Streamlit
-st.title('Análise de Negócios do Yelp')
+st.title('Exploração Turística e Análise de Negócios do Yelp')
 
-# Seção 1: Visualização das categorias mais frequentes
-st.subheader('Top 10 Categorias Mais Frequentes')
+# Organização em tabelas
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Top Avaliações", "Faixa de Preço", "Mapas Interativos", "Tendências Temporais", "Análise Textual", "Cidades Bem Avaliadas", "Relacionamento de Comentários"
+])
 
-# Calculando a contagem das 10 categorias mais frequentes
-category_counts = df_negocios['categories'].value_counts().head(10)
+# Seção 1: Top Avaliações
+with tab1:
+    st.subheader('Top 10 lugares mais bem avaliados')
+    top_lugares = df_negocios.sort_values(by='stars', ascending=False).head(10)
+    fig1 = px.bar(
+        top_lugares,
+        x='name', y='stars',
+        title='Top 10 lugares mais bem avaliados',
+        labels={'name': 'Lugar', 'stars': 'Avaliação'},
+        color='stars'
+    )
+    st.plotly_chart(fig1)
 
-# Criando um gráfico de barras para exibir as categorias mais frequentes
-fig, ax = plt.subplots(figsize=(14, 8))
-sns.barplot(x=category_counts.values, y=category_counts.index, ax=ax)
-ax.set_title('Top 10 Categorias Mais Frequentes')
-ax.set_xlabel('Contagem')
-ax.set_ylabel('Categorias')
-st.pyplot(fig)
+# Seção 2: Distribuição da Faixa de Preço
+with tab2:
+    st.subheader('Distribuição da Faixa de Preço')
+    fig2 = px.histogram(
+        df_negocios, x='RestaurantsPriceRange2',
+        nbins=4, color_discrete_sequence=['skyblue'],
+        title='Faixa de Preço',
+        labels={'RestaurantsPriceRange2': 'Faixa de Preço'}
+    )
+    st.plotly_chart(fig2)
 
-st.subheader('Categorias mais populares no Yelp')
-st.write('As categorias mais frequentes indicam que os negócios mais comuns no Yelp são restaurantes e cafés, com forte presença de empresas voltadas para alimentação.')
+# Seção 3: Mapas Interativos
+with tab3:
+    st.subheader('Mapa de Calor: Lugares Populares')
+    mapa = folium.Map(location=[df_negocios['latitude'].mean(), df_negocios['longitude'].mean()], zoom_start=10)
+    heat_data = [[row['latitude'], row['longitude'], row['stars']] for index, row in df_negocios.iterrows()]
+    HeatMap(heat_data).add_to(mapa)
+    st_folium(mapa, width=700, height=500)
 
-# Seção 2: Distribuição da faixa de preço
-st.subheader('Distribuição da Faixa de Preço')
+    st.subheader('Mapa de Estabelecimentos Bem Avaliados por Cidade')
+    cidade_selecionada = st.selectbox(
+        'Selecione uma cidade para explorar os 10 melhores estabelecimentos:',
+        df_negocios['city'].unique()
+    )
 
-# Criando um histograma para visualizar a distribuição da faixa de preço
-fig, ax = plt.subplots(figsize=(10, 6))
-bins = [0.5, 1.5, 2.5, 3.5, 4.5]  # Definindo os limites para cada faixa de preço
-sns.histplot(df_negocios['RestaurantsPriceRange2'], bins=bins, kde=False, color='skyblue', edgecolor='black', stat='frequency', ax=ax)
-ax.set_xticks([1, 2, 3, 4])  # Ajustando os ticks do eixo X
-ax.set_title('Distribuição da Faixa de Preço', fontsize=14)
-ax.set_xlabel('Faixa de Preço', fontsize=12)
-ax.set_ylabel('Frequência', fontsize=12)
+    estabelecimentos_na_cidade = df_negocios[df_negocios['city'] == cidade_selecionada]
+    top_estabelecimentos = estabelecimentos_na_cidade.sort_values(by='stars', ascending=False).head(10)
 
-# Adicionando rótulos com a contagem de cada barra
-for p in ax.patches:
-    ax.annotate(f'{int(p.get_height())}', (p.get_x() + p.get_width() / 2., p.get_height()), 
-                ha='center', va='center', fontsize=11, color='black', xytext=(0, 5), 
-                textcoords='offset points')
-st.pyplot(fig)
+    mapa_cidade = folium.Map(
+        location=[top_estabelecimentos['latitude'].mean(), top_estabelecimentos['longitude'].mean()],
+        zoom_start=12
+    )
 
-st.subheader('Faixa de preço mais procurada')
-st.write('A maioria dos negócios está concentrada nas faixas de preço mais baixas e médias, sugerindo que os consumidores do Yelp tendem a buscar opções acessíveis, mas com boa variedade.')
+    for _, row in top_estabelecimentos.iterrows():
+        folium.Marker(
+            location=[row['latitude'], row['longitude']],
+            popup=f"{row['name']} ({row['stars']}⭐)",
+            icon=folium.Icon(color='blue', icon='info-sign')
+        ).add_to(mapa_cidade)
 
-# Seção 3: Distribuição das estrelas
-st.subheader('Distribuição das Estrelas')
+    st_folium(mapa_cidade, width=700, height=500)
 
-# Criando um histograma para a distribuição das estrelas
-fig, ax = plt.subplots(figsize=(10, 6))
-hist_data = sns.histplot(df_negocios['stars'], bins=10, kde=False, ax=ax, color='skyblue', edgecolor='black')
-hist_data.set_ylabel('Frequência')
+# Seção 4: Tendências Temporais
+with tab4:
+    st.subheader('Tendência temporal das avaliações')
+    df_tip['date'] = pd.to_datetime(df_tip['date'], errors='coerce')
 
-# Ajustando os dados para a suavização da curva
-x = [patch.get_x() + patch.get_width() / 2 for patch in hist_data.patches]
-y = [patch.get_height() for patch in hist_data.patches]
-poly = PolynomialFeatures(degree=3)
-x_poly = poly.fit_transform(np.array(x).reshape(-1, 1))
-poly_reg_model = LinearRegression()
-poly_reg_model.fit(x_poly, y)
-x_full = np.linspace(min(x), max(x), 200)
-x_full_poly = poly.fit_transform(x_full.reshape(-1, 1))
-y_smooth = poly_reg_model.predict(x_full_poly)
+    df_tip['year_month'] = df_tip['date'].dt.to_period('M').astype(str)
+    stars_over_time = df_tip.merge(df_negocios[['business_id', 'stars']], on='business_id') \
+                            .groupby('year_month')['stars'].mean().reset_index()
 
-# Adicionando uma curva suave ao histograma
-ax.plot(x_full, y_smooth, color='red', linewidth=2, label='Curva Suave')
-ax.set_title('Distribuição das Estrelas')
-ax.set_xlabel('Estrelas')
-ax.set_ylabel('Frequência')
-ax.legend()
-st.pyplot(fig)
+    fig4 = px.line(
+        stars_over_time,
+        x='year_month', y='stars', title='Tendências das avaliações ao longo do tempo'
+    )
+    st.plotly_chart(fig4)
 
-st.subheader('Avaliações mais comuns no Yelp')
-st.write('A maioria das avaliações estão concentradas em 4 e 5 estrelas, indicando que os consumidores tendem a ser bastante positivos em suas avaliações no Yelp.')
-st.subheader('Relação entre Faixa de Preço e Número de Estrelas ')
-# Criando um boxplot para mostrar a relação
-fig, ax = plt.subplots(figsize=(10, 6))
-sns.boxplot(x='RestaurantsPriceRange2', y='stars', data=df_negocios, ax=ax, showfliers=True,
-            medianprops={'color': 'white', 'linewidth': 4})
-ax.set_title('Relação entre Faixa de Preço e Número de Estrelas ')
-ax.set_xlabel('Faixa de Preço')
-ax.set_ylabel('Estrelas')
-st.pyplot(fig)
 
-st.subheader('Faixa de preço e sua relação com a qualidade')
-st.write('Negócios com preços mais baixos têm uma maior variação nas avaliações, enquanto os de preços mais altos possuem avaliações mais consistentes, sugerindo uma expectativa de qualidade mais alta.')
+# Seção 5: Análise Textual
+with tab5:
+    st.subheader('Nuvem de Palavras dos Comentários')
+    text = " ".join(df_tip['text'].dropna())
+    wordcloud = WordCloud(width=800, height=400).generate(text)
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.axis('off')
+    st.pyplot(plt)
 
-# Criando uma série temporal para mostrar a tendência
-df_tip['year_month'] = df_tip['date'].dt.to_period('M')
-stars_over_time = df_tip.merge(df_negocios[['business_id', 'stars']], on='business_id').groupby('year_month')['stars'].mean()
+# Seção 6: Cidades Bem Avaliadas
+with tab6:
+    st.subheader('Top 10 Cidades com Mais Estabelecimentos Bem Avaliados')
 
-# Plotando a tendência
-fig, ax = plt.subplots(figsize=(14, 8))
-stars_over_time.plot(ax=ax)
-ax.set_title('Tendência da Média de Avaliações ao Longo do Tempo')
-ax.set_xlabel('Ano e Mês')
-ax.set_ylabel('Média de Estrelas')
-st.pyplot(fig)
+    estabelecimentos_bem_avaliados = df_negocios[df_negocios['stars'] >= 4]
 
-st.subheader('Tendência temporal das avaliações')
-st.write('A média de avaliações tende a melhorar ao longo do tempo, indicando que os negócios estão se esforçando para atender às expectativas dos consumidores.')
+    cidade_bem_avaliada = estabelecimentos_bem_avaliados.groupby('city').agg(
+        media_avaliacao=('stars', 'mean'),
+        total_estabelecimentos=('business_id', 'count')
+    ).sort_values(by='total_estabelecimentos', ascending=False)
 
-# Seção 5: Análise das 10 cidades com mais estabelecimentos bem avaliados
-st.subheader('Top 10 Cidades com Mais Estabelecimentos Bem Avaliados')
+    # Gráfico de barras
+    fig, ax = plt.subplots(figsize=(14, 8))
+    sns.barplot(x=cidade_bem_avaliada['total_estabelecimentos'].head(10), y=cidade_bem_avaliada.head(10).index, ax=ax)
+    ax.set_title('Top 10 Cidades com Mais Estabelecimentos Bem Avaliados')
+    ax.set_xlabel('Número de Estabelecimentos Bem Avaliados')
+    ax.set_ylabel('Cidades')
+    st.pyplot(fig)
 
-# Filtrar estabelecimentos bem avaliados (por exemplo, com estrelas >= 4)
-estabelecimentos_bem_avaliados = df_negocios[df_negocios['stars'] >= 4]
+    st.write('Essas cidades destacam-se por terem um grande número de estabelecimentos bem avaliados.')
 
-# Agrupar por cidade e calcular a média de avaliação e o total de estabelecimentos
-cidade_bem_avaliada = estabelecimentos_bem_avaliados.groupby('city').agg(
-    media_avaliacao=('stars', 'mean'),
-    total_estabelecimentos=('business_id', 'count')
-).sort_values(by='total_estabelecimentos', ascending=False)
+# Seção 7: Relacionamento entre Comentários e Avaliações
+with tab7:
+    st.subheader('Quantidade de Comentários x Avaliações')
 
-# Criar um gráfico de barras para exibir as top 10 cidades com mais estabelecimentos bem avaliados
-fig, ax = plt.subplots(figsize=(14, 8))
-sns.barplot(x=cidade_bem_avaliada['total_estabelecimentos'].head(10), y=cidade_bem_avaliada.head(10).index, ax=ax)
-ax.set_title('Top 10 Cidades com Mais Estabelecimentos Bem Avaliados')
-ax.set_xlabel('Número de Estabelecimentos Bem Avaliados')
-ax.set_ylabel('Cidades')
-st.pyplot(fig)
+    total_comments = df_tip.groupby('business_id').size().reset_index(name='total_comments')
+    df_merged = df_negocios.merge(total_comments, on='business_id', how='left')
 
-# Insight sobre as cidades com mais estabelecimentos bem avaliados
-st.write('Essas cidades destacam-se por terem um grande número de estabelecimentos bem avaliados, o que pode indicar uma alta qualidade de serviços e produtos oferecidos. '
-         'Esses dados podem ser usados para responder perguntas como: quais são as características comuns entre os estabelecimentos bem avaliados nessas cidades? '
-         'Como a localização geográfica influencia a qualidade percebida dos serviços? '
-         'Essas informações podem ajudar a identificar padrões e tendências que podem ser aplicados para melhorar a qualidade dos serviços em outras regiões.')
+    # Jitter para dispersão
+    jitter_strength = 0.1
+    df_merged['stars_jittered'] = df_merged['stars'] + np.random.uniform(-jitter_strength, jitter_strength, size=df_merged.shape[0])
+    df_merged['total_comments_jittered'] = df_merged['total_comments'] + np.random.uniform(-jitter_strength, jitter_strength, size=df_merged.shape[0])
 
-# Seção 6: Gráfico de dispersão
-st.subheader('Quantidade de Comentários x Avaliações')
-
-# Calcular o total de comentários por estabelecimento
-total_comments = df_tip.groupby('business_id').size().reset_index(name='total_comments')
-
-# Mesclar com o DataFrame df_negocios para obter as estrelas
-df_merged = df_negocios.merge(total_comments, left_on='business_id', right_on='business_id', how='left')
-
-# Para os pontos não ficarem sobrepostos
-jitter_strength = 0.1
-df_merged['stars_jittered'] = df_merged['stars'] + np.random.uniform(-jitter_strength, jitter_strength, size=df_merged.shape[0])
-df_merged['total_comments_jittered'] = df_merged['total_comments'] + np.random.uniform(-jitter_strength, jitter_strength, size=df_merged.shape[0])
-
-# Comentários x Avaliações
-fig, ax = plt.subplots(figsize=(10, 6))
-ax.scatter(df_merged['stars_jittered'], df_merged['total_comments_jittered'], alpha=0.5, color='blue')
-ax.set_title('Quantidade de Comentários x Avaliações', fontsize=16)
-ax.set_xlabel('Avaliações', fontsize=12)
-ax.set_ylabel('Total de Comentários', fontsize=12)
-ax.grid(False)
-st.pyplot(fig)
-
-st.subheader('Análise da relação entre comentários e avaliações')
-
-st.write( 'O gráfico de dispersão mostra a relação entre a quantidade de comentários e as avaliações dos estabelecimentos. ')
-
-# Seção 8: Mapa de calor para popularidade regional
-st.subheader('Popularidade Regional: Mapa de Calor')
-
-# Criando um mapa com os dados de localização
-mapa = folium.Map(location=[df_negocios['latitude'].mean(), df_negocios['longitude'].mean()], zoom_start=10)
-heat_data = [[row['latitude'], row['longitude'], row['stars']] for index, row in df_negocios.iterrows()]
-HeatMap(heat_data).add_to(mapa)
-
-# Exibir o mapa no Streamlit
-st_folium(mapa, width=700, height=500)
-st.write('O mapa de calor revela áreas com alta concentração de negócios bem avaliados, ajudando a identificar regiões populares e com boa satisfação dos clientes.')
-
-# Seção 9: cidades+estabelecimentos interativo
-
-st.subheader('Explore as 20 Cidades e Estabelecimentos Bem Avaliados')
-
-# Filtrar estabelecimentos bem avaliados(stars>= 4)
-estabelecimentos_bem_avaliados = df_negocios[df_negocios['stars'] >= 4]
-
-# Agrupar por cidade e calcular a média de avaliação e o total de estabelecimentos
-cidade_bem_avaliada = estabelecimentos_bem_avaliados.groupby('city').agg(
-    media_avaliacao=('stars', 'mean'),
-    total_estabelecimentos=('business_id', 'count')
-).sort_values(by='total_estabelecimentos', ascending=False)
-
-#limitar em 20 cidades
-top_20_cidades = cidade_bem_avaliada.head(20)
-
-#selecionando a cidade
-cidade_selecionada = st.selectbox(
-    'Selecione uma cidade para explorar os 10 melhores estabelecimentos:',
-    top_20_cidades.index
-)
-#exibir os dados da cidade selecionada
-st.write(f'### Detalhes da Cidade: {cidade_selecionada}')
-st.write(f"**Média de Avaliação**: {cidade_bem_avaliada.loc[cidade_selecionada, 'media_avaliacao']:.2f}")
-st.write(f"**Total de Estabelecimentos Avaliados**: {cidade_bem_avaliada.loc[cidade_selecionada, 'total_estabelecimentos']}")
-
-#filtrar estabelecimentos da cidade selecionada
-estabelecimentos_na_cidade = estabelecimentos_bem_avaliados[estabelecimentos_bem_avaliados['city'] == cidade_selecionada]
-
-#ordenar pelos mais bem avaliados e limitar a exibição aos 10 melhores
-top_estabelecimentos = estabelecimentos_na_cidade.sort_values(by='stars', ascending=False).head(10)
-
-#exibir melhores estabelecimentos da cidade
-st.write(f'#### Melhores Estabelecimentos Avaliados em {cidade_selecionada}')
-st.dataframe(top_estabelecimentos[['name', 'stars', 'categories']].sort_values(by='stars', ascending=False))
-
-#mapa interativo com os estabelecimentos bem avaliados
-st.subheader('Mapa de Estabelecimentos Bem Avaliados')
-
-mapa_cidade = folium.Map(
-    location=[top_estabelecimentos['latitude'].mean(), top_estabelecimentos['longitude'].mean()],
-    zoom_start=12
-)
-
-#adicionar marcadores ao mapa
-for _, row in top_estabelecimentos.iterrows():
-    folium.Marker(
-        location=[row['latitude'], row['longitude']],
-        popup=f"{row['name']} ({row['stars']}⭐)\n{row['categories']}\n{row['address']}",
-        icon=folium.Icon(color="blue", icon="info-sign"),
-    ).add_to(mapa_cidade)
-
-st_folium(mapa_cidade, width=700, height=500)
-st.write(
-    f"A análise acima permite explorar os melhores estabelecimentos avaliados na cidade de {cidade_selecionada}. "
-    "A partir disso, é possível identificar locais populares, explorar categorias de negócios e obter insights sobre a qualidade dos serviços oferecidos!"
-)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.scatter(df_merged['stars_jittered'], df_merged['total_comments_jittered'], alpha=0.5, color='blue')
+    ax.set_title('Quantidade de Comentários x Avaliações')
+    ax.set_xlabel('Avaliações')
+    ax.set_ylabel('Total de Comentários')
+    ax.grid(False)
+    st.pyplot(fig)
