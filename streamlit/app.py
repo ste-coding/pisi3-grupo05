@@ -14,8 +14,8 @@ from wordcloud import WordCloud
 # Carregando os datasets necessários
 @st.cache_data
 def load_data():
-    df_negocios = pd.read_parquet('yelp_academic_dataset_business_cleaned.parquet')
-    df_tip = pd.read_parquet('yelp_academic_dataset_tip_cleaned.parquet')
+    df_negocios = pd.read_parquet('./dataset/yelp_academic_dataset_business_cleaned.parquet')
+    df_tip = pd.read_parquet('./dataset/yelp_academic_dataset_tip_cleaned.parquet')
     return df_negocios, df_tip
 
 df_negocios, df_tip = load_data()
@@ -130,7 +130,7 @@ with tab6:
 
     st.write('Essas cidades destacam-se por terem um grande número de estabelecimentos bem avaliados.')
 
-# Seção 7: Relacionamento entre Comentários e Avaliações
+"""# Seção 7: Relacionamento entre Comentários e Avaliações
 with tab7:
     st.subheader('Quantidade de Comentários x Avaliações')
 
@@ -148,4 +148,4 @@ with tab7:
     ax.set_xlabel('Avaliações')
     ax.set_ylabel('Total de Comentários')
     ax.grid(False)
-    st.pyplot(fig)
+    st.pyplot(fig)-- Desconsiderar, visto que não vamos focar em análise de sentimentos"""
