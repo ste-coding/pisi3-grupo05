@@ -1,0 +1,6 @@
+### PERGUNTAS DE PESQUISA
+- Quais padrões de características de negócios podem ser identificados por meio de métodos de aprendizado não supervisionado, como clusterização, para entender a popularidade e as categorias de estabelecimentos em destinos turísticos regionais?
+
+- Quais algoritmos de aprendizado supervisionado oferecem maior precisão na predição de faixas de preço de estabelecimentos regionais com base em dados do Yelp?
+
+- Como a interação entre turistas e estabelecimentos locais(avaliações)pode ser analisada para otimizar a recomendação de destinos e atividades com base no perfil do usuário e nas avaliações compartilhadas por outros turistas? 

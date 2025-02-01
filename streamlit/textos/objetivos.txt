@@ -1,0 +1,13 @@
+### OBJETIVO DO PROJETO
+Desenvolver uma solução integrada voltada ao turismo regional, composta por um aplicativo para planejamento de itinerários, avaliações de pontos turísticos e estabelecimentos, e algoritmos de aprendizado de máquina. Essa solução visa promover destinos menos explorados, personalizar experiências com base nos interesses dos usuários e oferecer insights estratégicos para a gestão e planejamento do turismo em áreas regionais.
+
+### Objetivos Específicos:
+- **Desenvolver um aplicativo funcional para dispositivos móveis:**
+    - Permitir aos usuários explorar destinos regionais.
+    - Integrar um sistema de avaliações e recomendações para facilitar o planejamento de viagens.
+- **Realizar uma análise exploratória de dados:**
+    - Utilizar dados do Yelp e outras fontes para identificar padrões nas avaliações e características de estabelecimentos.
+    - Correlacionar fatores como faixa de preço, popularidade e localização com as preferências dos usuários.
+- **Implementar algoritmos de aprendizado de máquina:**
+    - Aplicar técnicas de clusterização para categorizar estabelecimentos e pontos turísticos com base em características comuns.
+    - Utilizar classificação para prever tendências de comportamento dos usuários e preferências no turismo regional.

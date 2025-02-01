@@ -1,0 +1,2 @@
+# ANÁLISE DE NEGÓCIOS YELP
+Nesta seção, são apresentados os resultados da análise exploratória dos dados da Yelp, realizada para compreender padrões nas categorias de negócios, avaliações, preços, e distribuição geográfica dos estabelecimentos. Os gráficos gerados nos auxiliam a identificar relações aprofundadas em análises futuras e utilizadas na construção de modelos.
