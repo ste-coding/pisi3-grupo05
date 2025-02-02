@@ -3,6 +3,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 from streamlit_pandas_profiling import st_profile_report
 from streamlit_folium import st_folium
+from collections import Counter
 
 # Análise e manipulação de dados
 import pandas as pd
@@ -60,17 +61,173 @@ def main():
     with st.sidebar:
         selecionado = option_menu(
             menu_title="PISI3",  # Título do menu
-            options=["Home", "Profiling", "Mapa", "Classificação", "Clusterização"], 
-            icons=['bi-house', 'bi-file-earmark-zip-fill', 'bi-geo-alt-fill', 'bi-hand-thumbs-up', 'bi-diagram-3'], 
+            options=["Home", "Filtragem", "Mapa", "Profiling", "Classificação", "Clusterização"], 
+            icons=['bi-house', 'bi-search', 'bi-geo-alt-fill', 'bi-file-earmark-zip-fill', 'bi-hand-thumbs-up', 'bi-diagram-3'], 
             menu_icon="laptop", 
             default_index=0,  
         )
 
 
+
+
+
+    # TELA DE FILTRAGEM DE DADOS
+    if selecionado == 'Filtragem':
+
+        opcao_selecionada = option_menu(
+        menu_title='DATAFRAMES', 
+        options=["Explorar", "Filtrar"],  
+        icons=['journal-text', 'list-check'],  
+        menu_icon="map",  
+        default_index=0,  
+        orientation="horizontal"  
+    )
+        if opcao_selecionada == 'Explorar':
+
+            # Cria duas colunas para organizar os selectboxes lado a lado
+            col1, col2 = st.columns(2)
+
+            # Selectbox para escolher o dataset
+            with col1:
+                dataset_selecionado = st.selectbox(
+                    "Selecione um dataset:",
+                    ['df_negocios', 'df_tip']
+                )
+
+            # Define o DataFrame correspondente
+            df = df_negocios if dataset_selecionado == 'df_negocios' else df_tip
+
+            # Selectbox para escolher a coluna de ordenação (somente após selecionar o dataset)
+            with col2:
+                coluna_ordenacao = st.selectbox(
+                    "Selecione a coluna para ordenar:",
+                    df.columns.tolist()
+                )
+
+            # Ordena o DataFrame pela coluna selecionada
+            df_ordenado = df.sort_values(by=coluna_ordenacao)
+
+            # Exibe o DataFrame ordenado (clicável para reordenar)
+            st.dataframe(df_ordenado)
+        
+
+
+        elif opcao_selecionada == 'Filtrar':
+            with st.expander("Tendência de avaliações ao longo do tempo"):
+                df_tip['date'] = pd.to_datetime(df_tip['date'], errors='coerce')
+
+                st.title('Análise de Tendência de Avaliações')
+
+                # Criar colunas para mês e ano
+                col1, col2 = st.columns(2)
+
+                # Seleção do ano e mês
+                with col1:
+                    ano = st.selectbox("Selecione o ano:", sorted(df_tip['date'].dt.year.unique(), reverse=True))
+                with col2:
+                    mes = st.selectbox("Selecione o mês:", sorted(df_tip['date'].dt.month.unique()))
+
+                # Filtrar df_tip pelo período selecionado
+                df_tip_filtrado = df_tip[(df_tip['date'].dt.year == ano) & (df_tip['date'].dt.month == mes)]
+
+                # Unir df_tip com df_negocios para obter as estrelas dos estabelecimentos
+                df_merged = df_tip_filtrado.merge(df_negocios[['business_id', 'stars']], on='business_id', how='left')
+
+                # Agrupar por dia e calcular a média das estrelas
+                df_tendencia = df_merged.groupby(df_merged['date'].dt.day)['stars'].mean().reset_index()
+                df_tendencia.rename(columns={'date': 'day'}, inplace=True)
+
+                # Verificar se há dados para exibir
+                if df_tendencia.empty:
+                    st.warning("Nenhuma avaliação encontrada para o período selecionado.")
+                else:
+                    # Criar gráfico de tendência usando Plotly
+                    fig = px.line(
+                        df_tendencia, x='day', y='stars', markers=True,
+                        title=f'Tendência de Avaliações ({mes}/{ano})', labels={'day': 'Dia do Mês', 'stars': 'Média de Estrelas'}
+                    )
+                    
+                    # Mostrar gráfico no Streamlit
+                    st.plotly_chart(fig)
+                    
+                    # GRÁFICO TENDENCIAS 2009 - 2022
+                    df_tip['date'] = pd.to_datetime(df_tip['date'], errors='coerce')
+
+                    df_tip['year_month'] = df_tip['date'].dt.to_period('M').astype(str)
+                    stars_over_time = df_tip.merge(df_negocios[['business_id', 'stars']], on='business_id') \
+                                            .groupby('year_month')['stars'].mean().reset_index()
+
+                    fig3 = px.line(
+                        stars_over_time, x='year_month', y='stars',
+                        title='Tendências de Avaliações (2009 - 2022)', labels={'year_month': 'Mês_Ano', 'stars': 'Estrelas'}
+                    )
+                    
+                    st.plotly_chart(fig3)
+
+            with st.expander("Estabelecimentos por faixa de preço"):
+                fig2 = px.histogram(
+                    df_negocios, x='RestaurantsPriceRange2',
+                    nbins=4, color_discrete_sequence=['skyblue'],
+                    title='Faixa de Preço',
+                    labels={'RestaurantsPriceRange2': 'Faixa de Preço'}
+                )
+                st.plotly_chart(fig2)
+                
+                st.subheader("Filtrar Estabelecimentos/Categorias por Faixa de Preço")
+
+                # Criar colunas para o selectbox e slider
+                col1, col2 = st.columns(2)
+
+                # Selectbox para escolher a faixa de preço
+                with col1:
+                    faixa_preco = st.selectbox(
+                        "Selecione a faixa de preço:",
+                        [1, 2, 3, 4]
+                    )
+
+                # Slider para escolher o número de categorias a serem mostradas
+                with col2:
+                    numero_de_categorias = st.slider(
+                        "Selecione o número de categorias a exibir:",
+                        min_value=5, max_value=50, value=5, step=5
+                    )
+
+                # Filtra os dados de acordo com a faixa de preço selecionada
+                df_filtrado = df_negocios[df_negocios['RestaurantsPriceRange2'] == faixa_preco]
+
+                # Exibe o DataFrame filtrado
+                col1_df, col2_df = st.columns(2)  # Criar colunas para os dois dataframes
+
+                with col1_df:
+                    st.write(f"Quantidade de Estabelecimentos: {df_filtrado.shape[0]}")
+                    st.dataframe(df_filtrado)  # Exibe o primeiro dataframe com os estabelecimentos filtrados
+                
+                # Exibir a tabela com as categorias mais citadas
+                todas_as_categorias = []
+
+                # Iterando sobre a coluna 'categories' do df_filtrado
+                for categorias in df_filtrado['categories'].dropna():
+                    todas_as_categorias.extend(categorias.split(', '))
+
+                # Contar a frequência das categorias
+                categoria_contagem = Counter(todas_as_categorias)
+
+                # Obter as categorias mais comuns com base no valor do slider
+                categorias_mais_comuns = categoria_contagem.most_common(numero_de_categorias)
+
+                # Criar um DataFrame para exibir como tabela
+                categorias_df = pd.DataFrame(categorias_mais_comuns, columns=['Categoria', 'Quantidade'])
+
+                with col2_df:
+                    st.write("Categorias mais comuns por faixa de preço")
+                    st.dataframe(categorias_df)  # Exibe o segundo dataframe com as categorias mais comuns
+
+
+    
     # TELA ANALISE EXPLORATORIA
 
     # Exibe o conteúdo com base na opção selecionada
-    if selecionado == 'Profiling':
+    elif selecionado == 'Profiling':
         analise = 'textos/analise.txt'
         st.write(ler_arquivo(analise))
 
@@ -166,6 +323,9 @@ def main():
                 st.pyplot(plt)
                 st.write("Palavras mais encontradas nos comentários")
 
+
+
+
     # TELA DO MAPA
     elif selecionado == "Mapa":
         st.subheader('Mapa de Calor: Lugares Populares')
@@ -197,6 +357,10 @@ def main():
 
         st_folium(mapa_cidade, width=700, height=500)
 
+
+
+
+
     # TELA INICIAL
     elif selecionado == 'Home':
         main = 'textos/main.txt'
@@ -204,9 +368,8 @@ def main():
         pps = 'textos/pps.txt'
         integrantes = 'textos/integrantes.txt'
 
-        st.title("PISI 3 - PÁGINA INICIAL")
         opcao_selecionada = option_menu(
-        menu_title=None, 
+        menu_title='PÁGINA INICIAL', 
         options=["Resumo", "Objetivos", "Perguntas","Integrantes"],  
         icons=['journal-text', 'list-check', 'bi-question-circle-fill', 'bi-person-fill-add'],  
         menu_icon="cast",  
@@ -293,6 +456,7 @@ def main():
         plt.ylabel('Inércia')
         plt.title('Método do Cotovelo')
         with st.expander('Cotovelo'):
+            st.write('com as 5 colunas' )
             st.pyplot(plt)
 
         # CLUSTERIZAÇÃO COM KMEANS
@@ -370,7 +534,7 @@ def main():
     # CLASSIFICAÇÃO
     elif selecionado == 'Classificação':
         #Logistic Regression
-        df = pd.read_csv('C:/Users/User/Documents/GitHub/pisi3-grupo05/pisi3-grupo05/dataset/yelp_academic_dataset_business_cleaned.csv')
+        df = pd.read_csv('./dataset/yelp_academic_dataset_business_cleaned.csv')
 
         cols = [
             'stars', 'review_count', 'latitude', 'longitude',
