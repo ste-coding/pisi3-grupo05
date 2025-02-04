@@ -228,8 +228,9 @@ def main():
 
     # Exibe o conteúdo com base na opção selecionada
     elif selecionado == 'Profiling':
-        analise = 'textos/analise.txt'
-        st.write(ler_arquivo(analise))
+        
+        st.write('''
+                 # ANALISE EXPLORATÓRIA''')
 
         opcao_selecionada = option_menu(
         menu_title=None, 
@@ -363,10 +364,7 @@ def main():
 
     # TELA INICIAL
     elif selecionado == 'Home':
-        main = 'textos/main.txt'
-        objetivos = 'textos/objetivos.txt'
-        pps = 'textos/pps.txt'
-        integrantes = 'textos/integrantes.txt'
+
 
         opcao_selecionada = option_menu(
         menu_title='PÁGINA INICIAL', 
@@ -378,13 +376,38 @@ def main():
     )
         
         if opcao_selecionada == 'Resumo':
-            st.write(ler_arquivo(main))
+            st.write('''### RESUMO
+O turismo regional apresenta-se como uma alternativa sustentável para descentralizar o fluxo turístico de grandes centros urbanos, promovendo a valorização de destinos menos explorados. Este trabalho propõe o desenvolvimento de um aplicativo voltado ao turismo regional, integrando funcionalidades de planejamento de itinerários e avaliações de estabelecimentos. Combinando técnicas de aprendizado de máquina, como clusterização e classificação, o presente estudo busca identificar padrões de popularidade e categorias de negócios em destinos regionais, além de prever faixas de preço de estabelecimentos com base em dados do Yelp. Entre as funcionalidades, destacam-se a criação de itinerários organizados, gestão de tarefas de viagem e avaliações colaborativas, além da integração com serviços como APIs de geolocalização. A validação da proposta será conduzida por meio de uma análise baseada em ciência de dados, explorando padrões em avaliações e correlacionando características de negócios com suas faixas de preço.
+''')
         elif opcao_selecionada == 'Objetivos':
-            st.write(ler_arquivo(objetivos))
+            st.write('''### OBJETIVO DO PROJETO
+Desenvolver uma solução integrada voltada ao turismo regional, composta por um aplicativo para planejamento de itinerários, avaliações de pontos turísticos e estabelecimentos, e algoritmos de aprendizado de máquina. Essa solução visa promover destinos menos explorados, personalizar experiências com base nos interesses dos usuários e oferecer insights estratégicos para a gestão e planejamento do turismo em áreas regionais.
+
+### Objetivos Específicos:
+- **Desenvolver um aplicativo funcional para dispositivos móveis:**
+    - Permitir aos usuários explorar destinos regionais.
+    - Integrar um sistema de avaliações e recomendações para facilitar o planejamento de viagens.
+- **Realizar uma análise exploratória de dados:**
+    - Utilizar dados do Yelp e outras fontes para identificar padrões nas avaliações e características de estabelecimentos.
+    - Correlacionar fatores como faixa de preço, popularidade e localização com as preferências dos usuários.
+- **Implementar algoritmos de aprendizado de máquina:**
+    - Aplicar técnicas de clusterização para categorizar estabelecimentos e pontos turísticos com base em características comuns.
+    - Utilizar classificação para prever tendências de comportamento dos usuários e preferências no turismo regional.''')
         elif opcao_selecionada == 'Perguntas':
-            st.write(ler_arquivo(pps))
+            st.write('''### PERGUNTAS DE PESQUISA
+- Quais padrões de características de negócios podem ser identificados por meio de métodos de aprendizado não supervisionado, como clusterização, para entender a popularidade e as categorias de estabelecimentos em destinos turísticos regionais?
+
+- Quais algoritmos de aprendizado supervisionado oferecem maior precisão na predição de faixas de preço de estabelecimentos regionais com base em dados do Yelp?
+
+- Como a interação entre turistas e estabelecimentos locais(avaliações)pode ser analisada para otimizar a recomendação de destinos e atividades com base no perfil do usuário e nas avaliações compartilhadas por outros turistas? 
+''')
         elif opcao_selecionada == 'Integrantes':
-            st.write(ler_arquivo(integrantes))
+            st.write('''### INTEGRANTES DO PROJETO
+- Ellen Caroliny
+- Evny Vitória
+- Igor Queiroz
+- Isadora Albuquerque
+- Stéphanie Cândido''')
 
 
     
