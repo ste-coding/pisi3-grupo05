@@ -1,0 +1,15 @@
+streamlit
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+jupyter
+plotly
+folium
+streamlit_folium
+wordcloud
+streamlit_option_menu
+streamlit_pandas_profiling
+ydata_profiling
+imblearn
