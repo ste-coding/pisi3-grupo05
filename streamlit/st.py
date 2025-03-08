@@ -29,6 +29,8 @@ from sklearn.decomposition import PCA
 
 # Imbalance Learning (Imblearn)
 from imblearn.over_sampling import SMOTE
+from imblearn.combine import SMOTEENN
+
 from imblearn.pipeline import Pipeline as ImbPipeline
 
 # Visualização geoespacial
