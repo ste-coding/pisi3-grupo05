@@ -557,12 +557,13 @@ Desenvolver uma solução integrada voltada ao turismo regional, composta por um
     # CLASSIFICAÇÃO
     elif selecionado == 'Classificação':
         #Logistic Regression
-        df = pd.read_csv('./dataset/yelp_academic_dataset_business_cleaned.csv')
+        # Carregar o dataset
+        df = pd.read_parquet('../dataset/yelp_academic_dataset_business_cleaned.parquet')
 
+        # Seleção de colunas
         cols = [
             'stars', 'review_count', 'latitude', 'longitude',
-            'Alcohol', 'BikeParking', 'RestaurantsDelivery', 
-            'RestaurantsTakeOut', 'RestaurantsPriceRange2'
+            'Alcohol', 'BikeParking', 'RestaurantsDelivery', 'RestaurantsTakeOut', 'RestaurantsPriceRange2'
         ]
         df = df[cols]
 
@@ -572,13 +573,20 @@ Desenvolver uma solução integrada voltada ao turismo regional, composta por um
         df['RestaurantsDelivery'] = df['RestaurantsDelivery'].map({'True': 1, 'False': 0, 'Unknown': 0})
         df['RestaurantsTakeOut'] = df['RestaurantsTakeOut'].map({'True': 1, 'False': 0, 'Unknown': 0})
 
+        # Remover valores nulos na coluna alvo
         df = df.dropna(subset=['RestaurantsPriceRange2'])
 
+        # Combinar classes 3 e 4
+        df['RestaurantsPriceRange2'] = df['RestaurantsPriceRange2'].replace({4: 3}) - 1
+
+        # Separar features e target
         X = df.drop('RestaurantsPriceRange2', axis=1)
         y = df['RestaurantsPriceRange2'].astype(int)
 
+        # Dividir em treino e teste
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=1)
 
+        # Pré-processamento
         preprocessor = ColumnTransformer(
             transformers=[
                 ('num', Pipeline(steps=[
@@ -586,38 +594,32 @@ Desenvolver uma solução integrada voltada ao turismo regional, composta por um
                     ('scaler', StandardScaler())
                 ]), ['stars', 'review_count', 'latitude', 'longitude']),
                 ('cat', Pipeline(steps=[
-                    ('imputer', SimpleImputer(strategy='most_frequent')),
-                    ('passthrough', 'passthrough')
+                    ('imputer', SimpleImputer(strategy='most_frequent'))
                 ]), ['Alcohol', 'BikeParking', 'RestaurantsDelivery', 'RestaurantsTakeOut'])
             ]
         )
 
-        pipeline = ImbPipeline([
+        # Pipeline com SMOTEENN e Regressão Logística
+        pipeline_lr_smoteenn = ImbPipeline([
             ('preprocessor', preprocessor),
-            ('smote', SMOTE(random_state=1)),
-            ('classifier', LogisticRegression(class_weight='balanced', max_iter=1000, random_state=1))
-        ])
-        y_train_bin = label_binarize(y_train, classes=[1, 2, 3, 4])
-        y_test_bin = label_binarize(y_test, classes=[1, 2, 3, 4])
-
-        pipeline = ImbPipeline([
-            ('preprocessor', preprocessor),
-            ('smote', SMOTE(random_state=42)),
+            ('smoteenn', SMOTEENN(random_state=42)),  # SMOTEENN aqui
             ('classifier', OneVsRestClassifier(LogisticRegression(class_weight='balanced', max_iter=1000, random_state=1)))
         ])
 
-        pipeline.fit(X_train, y_train_bin)
+        # Treinar o modelo
+        pipeline_lr_smoteenn.fit(X_train, y_train)
 
-        y_pred = pipeline.predict(X_test)
-        y_probs = pipeline.predict_proba(X_test)
+        # Previsões no conjunto de teste
+        y_pred_lr_smoteenn = pipeline_lr_smoteenn.predict(X_test)
 
-        cm = confusion_matrix(y_test, y_pred.argmax(axis=1) + 1)
+        # Matriz de Confusão e Relatório de Classificação
+        cm_lr_smoteenn = confusion_matrix(y_test, y_pred_lr_smoteenn)
         plt.figure(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[1, 2, 3, 4], yticklabels=[1, 2, 3, 4])
-        plt.xlabel('Predicted')
-        plt.ylabel('Actual')
-        plt.title('Confusion Matrix - Logistic Regression')
-        st.pyplot(plt)
+        sns.heatmap(cm_lr_smoteenn, annot=True, fmt='d', cmap='Blues', xticklabels=['Baixo', 'Médio', 'Alto'], yticklabels=['Baixo', 'Médio', 'Alto'])
+        plt.xlabel('Previsão')
+        plt.ylabel('Real')
+        plt.title('Matriz de Confusão - Regressão Logística (SMOTEENN)')
+        plt.show()
 
 if __name__ == '__main__':
     main()
