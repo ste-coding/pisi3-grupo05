@@ -4,6 +4,7 @@ from streamlit_option_menu import option_menu
 from streamlit_pandas_profiling import st_profile_report
 from streamlit_folium import st_folium
 from collections import Counter
+import joblib
 
 # Análise e manipulação de dados
 import pandas as pd
@@ -558,70 +559,142 @@ Desenvolver uma solução integrada voltada ao turismo regional, composta por um
 
     # CLASSIFICAÇÃO
     elif selecionado == 'Classificação':
-        #Logistic Regression
-        # Carregar o dataset
-        df = pd.read_parquet('../dataset/yelp_academic_dataset_business_cleaned.parquet')
+        # Título da aplicação
+        st.title("Previsão de Faixa de Preço de Restaurantes")
 
-        # Seleção de colunas
-        cols = [
-            'stars', 'review_count', 'latitude', 'longitude',
-            'Alcohol', 'BikeParking', 'RestaurantsDelivery', 'RestaurantsTakeOut', 'RestaurantsPriceRange2'
-        ]
-        df = df[cols]
+        # Descrição
+        st.write("""
+        Esta aplicação utiliza modelos de machine learning para prever a faixa de preço de restaurantes com base em suas características.
+        Escolha um modelo e insira os valores das features para ver a previsão.
+        """)
 
-        # Converter colunas categóricas
-        df['Alcohol'] = df['Alcohol'].map({'None': 0, 'Beer&Wine': 1, 'Full_Bar': 2, 'Unknown': 1})
-        df['BikeParking'] = df['BikeParking'].fillna(0).astype(int)
-        df['RestaurantsDelivery'] = df['RestaurantsDelivery'].map({'True': 1, 'False': 0, 'Unknown': 0})
-        df['RestaurantsTakeOut'] = df['RestaurantsTakeOut'].map({'True': 1, 'False': 0, 'Unknown': 0})
+        # Carregar os modelos salvos e as previsões no conjunto de teste
+        modelos = {
+            "Regressão Logística (SMOTE)": {
+                "modelo": "modelos/modelo_lr_smote.pkl",
+                "previsoes": "previsoes/previsoes_lr_smote.pkl",
+                "y_test": "test/y_test.pkl"
+            },
+            "Regressão Logística (SMOTEENN)": {
+                "modelo": "modelos/modelo_lr_smoteenn.pkl",
+                "previsoes": "previsoes/previsoes_lr_smoteenn.pkl",
+                "y_test": "test/y_test.pkl"
+            },
+            "KNN (SMOTE)": {
+                "modelo": "modelos/modelo_knn_smote.pkl",
+                "previsoes": "previsoes/previsoes_knn_smote.pkl",
+                "y_test": "test/y_test.pkl"
+            },
+            "KNN (SMOTEENN)": {
+                "modelo": "modelos/modelo_knn_smoteenn.pkl",
+                "previsoes": "previsoes/previsoes_knn_smoteenn.pkl",
+                "y_test": "test/y_test.pkl"
+            },
+            "XGBoost (SMOTE)": {
+                "modelo": "modelos/modelo_xgb_smote.pkl",
+                "previsoes": "previsoes/previsoes_xgb_smote.pkl",
+                "y_test": "test/y_test.pkl"
+            },
+            "XGBoost (SMOTEENN)": {
+                "modelo": "modelos/modelo_xgb_smoteenn.pkl",
+                "previsoes": "previsoes/previsoes_xgb_smoteenn.pkl",
+                "y_test": "test/y_test.pkl"
+            },
+            "Random Forest (SMOTE)": {
+                "modelo": "modelos/modelo_rf_smote.pkl",
+                "previsoes": "previsoes/previsoes_rf_smote.pkl",
+                "y_test": "test/y_test.pkl"
+            },
+            "Random Forest (SMOTEENN)": {
+                "modelo": "modelos/modelo_rf_smoteenn.pkl",
+                "previsoes": "previsoes/previsoes_rf_smoteenn.pkl",
+                "y_test": "test/y_test.pkl"
+            }
+        }
 
-        # Remover valores nulos na coluna alvo
-        df = df.dropna(subset=['RestaurantsPriceRange2'])
+        # Selecionar o modelo
+        modelo_selecionado = st.selectbox("Escolha um modelo:", list(modelos.keys()))
 
-        # Combinar classes 3 e 4
-        df['RestaurantsPriceRange2'] = df['RestaurantsPriceRange2'].replace({4: 3}) - 1
+        # Carregar o modelo, previsões e y_test
+        modelo = joblib.load(modelos[modelo_selecionado]["modelo"])
+        previsoes = joblib.load(modelos[modelo_selecionado]["previsoes"])
+        y_test = joblib.load(modelos[modelo_selecionado]["y_test"])
 
-        # Separar features e target
-        X = df.drop('RestaurantsPriceRange2', axis=1)
-        y = df['RestaurantsPriceRange2'].astype(int)
+        # Inputs para as features
+        st.sidebar.header("Insira as características do restaurante")
 
-        # Dividir em treino e teste
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=1)
+        def user_input_features():
+            stars = st.sidebar.slider('Avaliação (stars)', 1.0, 5.0, 3.5, step=0.5)
+            review_count = st.sidebar.slider('Número de avaliações (review_count)', 0, 1000, 100)
+            latitude = st.sidebar.number_input('Latitude', value=37.7749)
+            longitude = st.sidebar.number_input('Longitude', value=-122.4194)
+            alcohol = st.sidebar.selectbox('Serviço de álcool (Alcohol)', ['Nenhum', 'Beer&Wine', 'Full_Bar'])
+            bike_parking = st.sidebar.selectbox('Estacionamento para bicicletas (BikeParking)', ['Sim', 'Não'])
+            delivery = st.sidebar.selectbox('Entrega (RestaurantsDelivery)', ['Sim', 'Não'])
+            takeout = st.sidebar.selectbox('Takeout (RestaurantsTakeOut)', ['Sim', 'Não'])
 
-        # Pré-processamento
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ('num', Pipeline(steps=[
-                    ('imputer', SimpleImputer(strategy='mean')),
-                    ('scaler', StandardScaler())
-                ]), ['stars', 'review_count', 'latitude', 'longitude']),
-                ('cat', Pipeline(steps=[
-                    ('imputer', SimpleImputer(strategy='most_frequent'))
-                ]), ['Alcohol', 'BikeParking', 'RestaurantsDelivery', 'RestaurantsTakeOut'])
-            ]
-        )
+            # Mapear inputs para valores numéricos
+            alcohol_map = {'Nenhum': 0, 'Beer&Wine': 1, 'Full_Bar': 2}
+            bike_parking_map = {'Sim': 1, 'Não': 0}
+            delivery_map = {'Sim': 1, 'Não': 0}
+            takeout_map = {'Sim': 1, 'Não': 0}
 
-        # Pipeline com SMOTEENN e Regressão Logística
-        pipeline_lr_smoteenn = ImbPipeline([
-            ('preprocessor', preprocessor),
-            ('smoteenn', SMOTEENN(random_state=42)),  # SMOTEENN aqui
-            ('classifier', OneVsRestClassifier(LogisticRegression(class_weight='balanced', max_iter=1000, random_state=1)))
-        ])
+            data = {
+                'stars': stars,
+                'review_count': review_count,
+                'latitude': latitude,
+                'longitude': longitude,
+                'Alcohol': alcohol_map[alcohol],
+                'BikeParking': bike_parking_map[bike_parking],
+                'RestaurantsDelivery': delivery_map[delivery],
+                'RestaurantsTakeOut': takeout_map[takeout]
+            }
 
-        # Treinar o modelo
-        pipeline_lr_smoteenn.fit(X_train, y_train)
+            features = pd.DataFrame(data, index=[0])
+            return features
+        
+        with st.expander(f"Relatório e Matriz {modelo_selecionado}"):
+            # Relatório de Classificação
+            st.subheader(f"Relatório de Classificação do {modelo_selecionado}")
+            report = classification_report(y_test, previsoes)
+            st.markdown(f"```\n{report}\n```")
 
-        # Previsões no conjunto de teste
-        y_pred_lr_smoteenn = pipeline_lr_smoteenn.predict(X_test)
+            # Exibir a matriz de confusão
+            st.subheader('Matriz de Confusão:')
+            cm = confusion_matrix(y_test, previsoes)
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Baixo', 'Médio', 'Alto'], yticklabels=['Baixo', 'Médio', 'Alto'])
+            plt.xlabel('Previsão')
+            plt.ylabel('Real')
+            plt.title(f'Matriz de Confusão - {modelo_selecionado}')
+            st.pyplot(plt)
 
-        # Matriz de Confusão e Relatório de Classificação
-        cm_lr_smoteenn = confusion_matrix(y_test, y_pred_lr_smoteenn)
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(cm_lr_smoteenn, annot=True, fmt='d', cmap='Blues', xticklabels=['Baixo', 'Médio', 'Alto'], yticklabels=['Baixo', 'Médio', 'Alto'])
-        plt.xlabel('Previsão')
-        plt.ylabel('Real')
-        plt.title('Matriz de Confusão - Regressão Logística (SMOTEENN)')
-        plt.show()
+        # Coletar inputs do usuário
+        input_df = user_input_features()
+
+        # Exibir as features inseridas
+        st.subheader('Características inseridas:')
+        st.write(input_df)
+
+        # Fazer a previsão
+        if st.button("Prever"):
+            prediction = modelo.predict(input_df)
+            prediction_proba = modelo.predict_proba(input_df)
+
+            # Mapear a previsão para o nome da classe
+            classes = ['Baixo', 'Médio', 'Alto']
+            predicted_class = classes[prediction[0]]
+
+            # Exibir a previsão
+            st.subheader('Previsão:')
+            st.write(f"A faixa de preço prevista é: **{predicted_class}**")
+
+            # Exibir probabilidades
+            st.subheader('Probabilidades:')
+            for i, prob in enumerate(prediction_proba[0]):
+                st.write(f"Probabilidade de {classes[i]}: {prob:.2f}")
+
+
 
 if __name__ == '__main__':
     main()
