@@ -5,6 +5,7 @@ from streamlit_pandas_profiling import st_profile_report
 from streamlit_folium import st_folium
 from collections import Counter
 import joblib
+from sklearn.metrics import silhouette_score, silhouette_samples
 
 # Análise e manipulação de dados
 import pandas as pd
@@ -48,8 +49,8 @@ def main():
     # Carregando os datasets necessários
     @st.cache_data
     def load_data():
-        df_negocios = pd.read_parquet('./dataset/yelp_academic_dataset_business_cleaned.parquet')
-        df_tip = pd.read_parquet('./dataset/yelp_academic_dataset_tip_cleaned.parquet')
+        df_negocios = pd.read_parquet('../dataset/yelp_academic_dataset_business_cleaned.parquet')
+        df_tip = pd.read_parquet('../dataset/yelp_academic_dataset_tip_cleaned.parquet')
         return df_negocios, df_tip
 
     df_negocios, df_tip = load_data()
@@ -419,61 +420,61 @@ Desenvolver uma solução integrada voltada ao turismo regional, composta por um
     # TELA DE CLUSTERIZAÇÃO
     
     elif selecionado == 'Clusterização':
-        #df = pd.read_csv('./dataset/yelp_academic_dataset_business_cleaned.csv')
+        import matplotlib.cm as cm
+        from sklearn.decomposition import PCA
 
-        st.title("Agrupamento com a base de dados yelp_academic_dataset")
+        # Título da aplicação
+        st.title("Clusterização de Dados com K-Means")
 
-        original_df = pd.read_parquet('./dataset/yelp_academic_dataset_business.parquet')
+        # Carregar os dados diretamente do arquivo CSV
+        @st.cache_data
+        def load_data():
+            df = pd.read_csv('../dataset/yelp_academic_dataset_business_cleaned.csv')
+            return df
 
+        df = load_data()
+
+        # Reduzir para 10.000 amostras para melhor desempenho
+        sampled_df = df.sample(n=10000, random_state=2)
+
+        # Selecionar colunas relevantes
         columns = ['stars', 'review_count', 'latitude', 'longitude', 'categories']
-
-        original_df = original_df[columns]
-        with st.expander('Dataframe Original'):
-            st.write("Dataframe yelp_academic_dataset_business com as colunas selecionadas para clusterização")
-            st.subheader("Dados")
-            st.dataframe(original_df.head(10000))
-            st.subheader("Descrição")
-            st.dataframe(original_df.head(10000).describe())
-
-        # Reduzir o número de amostras para 10.000
-        sampled_df = df_negocios.sample(n=10000, random_state=2)
-
-        # Selecionar as colunas relevantes para a clusterização
-        #columns = ['stars', 'review_count', 'latitude', 'longitude', 'categories']
         sampled_df = sampled_df[columns]
 
-        with st.expander("Dataframe Modificado"):
-            st.write("Dataframe com as cinco colunas selecionadas após embaralhamento e remoção dos valores nulos")
-            st.subheader("Dados")
-            st.dataframe(sampled_df)
-            st.subheader("Descrição")
-            st.dataframe(sampled_df.describe())
+        # Exibir os dados carregados
+        st.write("### Visualização dos Dados Carregados")
+        st.write("Estes são dados de restaurantes do Yelp, com informações como avaliação, localização e categorias.")
+        st.dataframe(sampled_df.head()) 
 
-        # Tratamento de dados categóricos e numéricos
+        # Separar variáveis numéricas e categóricas
         numeric_features = ['stars', 'review_count', 'latitude', 'longitude']
         categorical_features = ['categories']
 
-        # Transformador para dados numéricos (normalização)
+        # Normalizar numéricos e transformar categóricos em One-Hot Encoding
         numeric_transformer = MinMaxScaler()
-
-        # Transformador para dados categóricos (One-Hot Encoding)
         categorical_transformer = OneHotEncoder(handle_unknown='ignore')
 
-        # Criar um pipeline de transformação
         preprocessor = ColumnTransformer(
             transformers=[
                 ('num', numeric_transformer, numeric_features),
                 ('cat', categorical_transformer, categorical_features)
             ])
 
-        # Aplicar a transformação
+        # Aplicar transformação
         processed_data = preprocessor.fit_transform(sampled_df)
+        processed_data_dense = processed_data.toarray()
 
-        # CLUSTERIZAÇÃO - Método do Cotovelo
+        # Redução de dimensionalidade com PCA (2 componentes)
+        pca = PCA(n_components=2, random_state=2)
+        processed_data_pca = pca.fit_transform(processed_data_dense)
+
+        # Método do Cotovelo
+        st.write("### Método do Cotovelo")
+        st.write("O método do cotovelo ajuda a escolher o número ideal de clusters. O ponto de cotovelo é onde a inércia começa a diminuir mais lentamente.")
         inertia = []
         for n in range(1, 11):
             kmeans = KMeans(n_clusters=n, random_state=2)
-            kmeans.fit(processed_data)
+            kmeans.fit(processed_data)  # Usar processed_data (antes do PCA)
             inertia.append(kmeans.inertia_)
 
         plt.figure(figsize=(8, 4))
@@ -481,81 +482,84 @@ Desenvolver uma solução integrada voltada ao turismo regional, composta por um
         plt.xlabel('Número de Clusters')
         plt.ylabel('Inércia')
         plt.title('Método do Cotovelo')
-        with st.expander('Cotovelo'):
-            st.write('com as 5 colunas' )
+
+        # Destacar o ponto de quebra do cotovelo em vermelho
+        best_k_elbow = np.argmin(np.diff(inertia, 2)) + 2  
+        plt.plot(best_k_elbow, inertia[best_k_elbow-1], 'ro')  
+
+        # Ajustar o tamanho da seta
+        plt.annotate('Cotovelo',
+                    xy=(best_k_elbow, inertia[best_k_elbow-1]),
+                    xytext=(best_k_elbow + 0.5, inertia[best_k_elbow-1] + 0.1 * max(inertia)),
+                    arrowprops=dict(facecolor='red', shrink=0.05, width=1, headwidth=8))
+
+        st.pyplot(plt)
+
+        # Selecionar número de clusters
+        st.write("### Escolha do Número de Clusters")
+        n_clusters = st.sidebar.slider("Selecione o número de clusters", 2, 10, 3, 
+                            help="Escolha o número de grupos (clusters) para agrupar os restaurantes com base em suas características.")
+
+        # Executar K-Means
+        kmeans = KMeans(n_clusters=n_clusters, random_state=2)
+        labels = kmeans.fit_predict(processed_data_pca)
+
+        # Adicionar coluna de clusters ao DataFrame
+        sampled_df['cluster'] = labels
+
+        # Método da Silhueta
+        with st.expander(f"Ver Método da Silhueta ({n_clusters} clusters)"):
+            st.write("### Método da Silhueta")
+            st.write("O gráfico da silhueta mostra quão bem cada ponto se encaixa no seu cluster. Valores próximos de 1 indicam uma boa separação.")
+            silhouette_avg = silhouette_score(processed_data_pca, labels)
+            st.write(f"Média da silhueta para {n_clusters} clusters: **{silhouette_avg:.2f}**")
+
+            # Gráfico da Silhueta
+            sample_silhouette_values = silhouette_samples(processed_data_pca, labels)
+            fig, ax = plt.subplots(figsize=(8, 6))
+            y_lower = 10
+            for i in range(n_clusters):
+                ith_cluster_silhouette_values = sample_silhouette_values[labels == i]
+                ith_cluster_silhouette_values.sort()
+                size_cluster_i = ith_cluster_silhouette_values.shape[0]
+                y_upper = y_lower + size_cluster_i
+                color = cm.nipy_spectral(float(i) / n_clusters)
+                ax.fill_betweenx(np.arange(y_lower, y_upper),
+                                0, ith_cluster_silhouette_values,
+                                facecolor=color, edgecolor=color, alpha=0.7)
+                ax.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+                y_lower = y_upper + 10
+            ax.axvline(x=silhouette_avg, color='red', linestyle='--')
+            ax.set_xlabel('Valor da Silhueta')
+            ax.set_ylabel('Cluster')
+            ax.set_title(f'Silhueta para {n_clusters} clusters')
+            st.pyplot(fig)
+
+        # Gráfico de dispersão dos clusters
+        with st.expander(f"Ver Gráfico de Dispersão ({n_clusters} clusters)"):
+            st.write("### Visualização dos Clusters")
+            st.write("Gráfico de dispersão dos clusters após redução de dimensionalidade com PCA.")
+            plt.figure(figsize=(8, 6))
+            scatter = plt.scatter(processed_data_pca[:, 0], processed_data_pca[:, 1], c=labels, cmap='viridis', s=50, alpha=0.5)
+            plt.xlabel('Principal Component 1')
+            plt.ylabel('Principal Component 2')
+            plt.title('KMeans Clustering')
+            plt.legend(*scatter.legend_elements(), title="Clusters")
             st.pyplot(plt)
 
-        # CLUSTERIZAÇÃO COM KMEANS
-        with st.expander("Clusterização com KMeans"):
-            st.subheader("Selecione as colunas para clusterização")
-            selected_columns = st.multiselect(
-                "Escolha pelo menos 2 colunas:",
-                numeric_features + categorical_features,  # Adiciona as colunas numéricas e categóricas
-                default=numeric_features  # Seleciona as colunas numéricas por padrão
-            )
+        with st.expander("Consultas Por Cluster"):
+            # Tabela de médias por cluster
+            st.write("### Médias por Cluster")
+            st.write("Esta tabela mostra as médias das características numéricas para cada cluster.")
+            numeric_columns = sampled_df.select_dtypes(include=[np.number]).columns
+            cluster_means = sampled_df.groupby('cluster')[numeric_columns].mean()
+            st.write(cluster_means)
 
-            # Verifica se o usuário selecionou pelo menos duas colunas
-            if len(selected_columns) >= 2:
-                st.subheader("Selecione o número de clusters")
-                qtd_clusters = st.slider(
-                    "Escolha o número de clusters (entre 2 e 10):",
-                    min_value=2,
-                    max_value=10,
-                    value=6  # Valor padrão
-                )
-
-                # Ajuste a transformação com as colunas selecionadas
-                numeric_selected = [col for col in selected_columns if col in numeric_features]
-                categorical_selected = [col for col in selected_columns if col in categorical_features]
-
-                # Transformador para dados numéricos (normalização)
-                numeric_transformer = MinMaxScaler()
-
-                # Transformador para dados categóricos (One-Hot Encoding)
-                categorical_transformer = OneHotEncoder(handle_unknown='ignore')
-
-                # Criar um pipeline de transformação
-                preprocessor = ColumnTransformer(
-                    transformers=[
-                        ('num', numeric_transformer, numeric_selected),
-                        ('cat', categorical_transformer, categorical_selected)
-                    ])
-
-                # Aplicar a transformação
-                processed_data = preprocessor.fit_transform(sampled_df)
-
-                # Aplicar KMeans
-                kmeans_model = KMeans(n_clusters=qtd_clusters, random_state=2)
-                kmeans_result = kmeans_model.fit_predict(processed_data)
-
-                # Reduzir a dimensionalidade para 2D com PCA para o gráfico de dispersão
-                pca = PCA(n_components=2)
-                reduced_data = pca.fit_transform(processed_data)
-
-                # Plotar os clusters
-                plt.figure(figsize=(8, 6))
-                plt.scatter(reduced_data[:, 0], reduced_data[:, 1], c=kmeans_result, cmap='viridis', s=50, alpha=0.5)
-
-                # Adicionar títulos e rótulos aos eixos
-                plt.xlabel('Principal Component 1')
-                plt.ylabel('Principal Component 2')
-                plt.title('KMeans Clustering (Dados Selecionados)')
-
-                # Exibir o gráfico
-                st.pyplot(plt)
-            else:
-                st.warning("Por favor, selecione pelo menos duas colunas para realizar a clusterização.")
-
-
-
-
-
-
-
-
-
-
-
+            # Mostrar dados de cada cluster
+            st.write("### Dados de Cada Cluster")
+            selected_cluster = st.selectbox("Selecione um cluster para visualizar:", sampled_df['cluster'].unique())
+            st.write(f"#### Dados do Cluster {selected_cluster}:")
+            st.dataframe(sampled_df[sampled_df['cluster'] == selected_cluster])
 
     # CLASSIFICAÇÃO
     elif selecionado == 'Classificação':
