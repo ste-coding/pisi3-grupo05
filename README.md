@@ -41,7 +41,7 @@ Este projeto é uma aplicação de análise de dados e aprendizado de máquina q
 2. Abra os notebooks de aprendizado de máquina para explorar as análises:
    - `machine-learning/clustering.ipynb`
    - `machine-learning/classification_2.ipynb`
-   - `classification_balanced.ipynb`
+   - `machine-learning/classification_balanced.ipynb`
 
 ## Contribuição
 Sinta-se à vontade para abrir issues e pull requests. Toda contribuição é bem-vinda!
